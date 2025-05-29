@@ -1,5 +1,5 @@
 import os
-import cv2
+from PIL import Image, ImageOps
 import numpy as np
 import json
 import re
@@ -71,35 +71,18 @@ class ReceiptProcessor:
         
     def preprocess_image(self, image_path):
         """
-        Preprocess the receipt image to improve OCR accuracy
-        
-        Args:
-            image_path (str): Path to the receipt image
-            
-        Returns:
-            numpy.ndarray: Preprocessed image
+        Preprocess image using PIL instead of OpenCV to avoid libGL issues
         """
-        # Read the image
-        image = cv2.imread(image_path)
-        if image is None:
-            raise ValueError(f"Could not read image from {image_path}")
-        
-        # Convert to grayscale
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        
-        # Apply adaptive thresholding
-        thresh = cv2.adaptiveThreshold(
-            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-        )
-        
-        # Apply dilation to make text more visible
-        kernel = np.ones((1, 1), np.uint8)
-        dilated = cv2.dilate(thresh, kernel, iterations=1)
-        
-        # Apply median blur to reduce noise
-        blurred = cv2.medianBlur(dilated, 3)
-        
-        return blurred
+        image = Image.open(image_path).convert('L')  # Convert to grayscale
+        image = ImageOps.autocontrast(image)  # Enhance contrast
+        image = image.resize((int(image.width * 1.5), int(image.height * 1.5)))  # Resize to make text more legible
+
+        # Save to temporary path
+        preprocessed_path = f"{os.path.splitext(image_path)[0]}_preprocessed.jpg"
+        image.save(preprocessed_path)
+        print(f"Preprocessed image saved to {preprocessed_path}")
+
+        return preprocessed_path
     
     def extract_text(self, image_path, preprocess=True):
         """
@@ -115,13 +98,7 @@ class ReceiptProcessor:
         """
         # Preprocess the image if required
         if preprocess:
-            image = self.preprocess_image(image_path)
-            # Save preprocessed image for debugging
-            preprocessed_path = f"{os.path.splitext(image_path)[0]}_preprocessed.jpg"
-            cv2.imwrite(preprocessed_path, image)
-            print(f"Preprocessed image saved to {preprocessed_path}")
-            
-            # Run OCR on preprocessed image
+            preprocessed_path = self.preprocess_image(image_path)
             result = self.ocr.ocr(preprocessed_path, cls=True)
         else:
             # Run OCR directly on original image
