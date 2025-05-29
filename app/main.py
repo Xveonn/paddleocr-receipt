@@ -1,6 +1,6 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
-from receipt_processor import ReceiptProcessor
+from app.receipt_processor import ReceiptProcessor
 import shutil
 import os
 
